@@ -1,0 +1,13 @@
+{
+  "name": "epb-test-js",
+  "version": "0.1.0",
+  "description": "Express demo app using the EndPointBlank JS library — computers, projectors, and error tracking",
+  "main": "src/app.js",
+  "scripts": {
+    "start": "node src/app.js"
+  },
+  "dependencies": {
+    "end-point-blank-js": "file:../end_point_blank_js",
+    "express": "^4.18.2"
+  }
+}
