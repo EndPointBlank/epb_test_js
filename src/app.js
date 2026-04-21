@@ -17,6 +17,7 @@
  * Equivalent to epb_test_rails in structure and purpose.
  */
 
+const { execSync } = require('child_process');
 const express = require('express');
 const epb = require('end-point-blank-js');
 const { reportInteraction, reportInteractionErrorHandler } = require('end-point-blank-js/src/middleware/report-interaction');
@@ -33,6 +34,10 @@ epb.configure({
   environment: 'development',
   clientId: 'kiKhVaXGr1oz4Ig8F2kGrTuDvd9RMwLE',
   clientSecret: 'lr+CFT3JoqnHalXZwR1Be5oaOsRBfYOQKpBNi+uaRyqopv1dp6gCuVzR9y4RdBI5',
+  applicationVersion: (() => {
+    try { return execSync('git rev-parse HEAD', { cwd: __dirname }).toString().trim(); }
+    catch { return process.env.GIT_COMMIT || '0'; }
+  })(),
 });
 
 // logBaseUrl is not in configure()'s allowed list — set directly
