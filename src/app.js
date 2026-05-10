@@ -5,16 +5,15 @@
  *
  * Endpoints
  * ---------
- * GET /computers   List all computers used across school facilities.
- * GET /projectors  List all projectors grouped by facility.
- * GET /errors      Intentionally throws to exercise EndPointBlank error tracking.
+ * GET    /books      List all books.
+ * POST   /books      Add a new book.
+ * DELETE /books/:id  Remove a book by id.
+ * GET    /errors     Intentionally throws to exercise EndPointBlank error tracking.
  *
  * All routes are protected by the `authorized` middleware (EndPointBlank
  * authorization check).  The reportInteraction / reportInteractionErrorHandler
  * middleware pair wraps every request/response and forwards data to the
  * EndPointBlank ingest service.
- *
- * Equivalent to epb_test_rails in structure and purpose.
  */
 
 const { execSync } = require('child_process');
@@ -54,9 +53,8 @@ app.use(express.json());
 app.use(reportInteraction);
 
 // Routes
-app.use('/computers', require('./routes/computers'));
-app.use('/projectors', require('./routes/projectors'));
-app.use('/errors',    require('./routes/errors'));
+app.use('/books',  require('./routes/books'));
+app.use('/errors', require('./routes/errors'));
 
 // EPB error tracking — must come after routes
 app.use(reportInteractionErrorHandler);
