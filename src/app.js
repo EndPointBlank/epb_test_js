@@ -49,6 +49,9 @@ epb.config.logBaseUrl = 'http://localhost:4001';
 const app = express();
 app.use(express.json());
 
+// Health check — before EPB middleware so it isn't tracked
+app.get('/status', (req, res) => res.status(200).send('ok'));
+
 // EPB request/response tracking — must come before routes
 app.use(reportInteraction);
 
