@@ -7,7 +7,7 @@
     "start": "node src/app.js"
   },
   "dependencies": {
-    "end-point-blank-js": "EndPointBlank/end_point_blank_js",
+    "end-point-blank-js": "git+https://github.com/EndPointBlank/end_point_blank_js.git",
     "express": "^4.18.2"
   }
 }
