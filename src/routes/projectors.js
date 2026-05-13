@@ -8,15 +8,11 @@ const { projectorsByFacility } = require('../data');
 
 const router = Router();
 
-/**
- * GET /projectors
- *
- * Returns all projectors grouped by the facility they belong to.
- * Equivalent to the teachers endpoint in epb_test_rails.
- */
-router.get('/', authorized, versioned(['1'], { state: 'Current' }), (req, res) => {
-  LogWriter.info('Fetching projectors list');
-  res.json({ projectors: projectorsByFacility() });
+router.get('/', authorized, versioned(['1'], { state: 'Current' }), async (req, res, next) => {
+  try {
+    LogWriter.info('Fetching projectors list');
+    res.json({ projectors: await projectorsByFacility() });
+  } catch (err) { next(err); }
 });
 
 module.exports = router;

@@ -19,6 +19,7 @@
 const { execSync } = require('child_process');
 const express = require('express');
 const epb = require('end-point-blank-js');
+const { setup: dbSetup } = require('./db');
 const { reportInteraction, reportInteractionErrorHandler } = require('end-point-blank-js/src/middleware/report-interaction');
 const { UnauthorizedError } = require('end-point-blank-js/src/unauthorized-error');
 const { registerExpressEndpoints } = require('end-point-blank-js/src/express/endpoint-registrar');
@@ -80,9 +81,16 @@ app.use((err, req, res, next) => { // eslint-disable-line no-unused-vars
 // ---------------------------------------------------------------------------
 
 const PORT = process.env.PORT || 3003;
-app.listen(PORT, () => {
-  console.log(`[epb-test-js] Listening on http://localhost:${PORT}`);
-  registerExpressEndpoints(app);
-});
+dbSetup()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`[epb-test-js] Listening on http://localhost:${PORT}`);
+      registerExpressEndpoints(app);
+    });
+  })
+  .catch(err => {
+    console.error('Database setup failed:', err);
+    process.exit(1);
+  });
 
 module.exports = app;
