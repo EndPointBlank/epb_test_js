@@ -33,8 +33,8 @@ epb.configure({
   baseUrl: INTAKE_URL,
   appName: 'epb-test-js',
   environment: process.env.NODE_ENV || 'development',
-  clientId: 'YOScUN1M9eFWawcMN14gfu/6d0y6RlvG',
-  clientSecret: 'up3udV3drFAnjhcqUxDI0BXJ+Hr6Hd6wHwuZcQNXXpFj6RNkmTNH87E3QrH4OYrD',
+  clientId: 'Sb3JsTeSd8EvPmQnLuTwFc4YjHgNvOq',
+  clientSecret: 'yK4pQmB7dN3sOkR2tF6bXeJiW0aFzGoBMaVnQkDpEyHwIlZcSxrUfOgtXu9P1J8',
   applicationVersion: (() => {
     try { return execSync('git rev-parse HEAD', { cwd: __dirname }).toString().trim(); }
     catch { return process.env.GIT_COMMIT || '0'; }
