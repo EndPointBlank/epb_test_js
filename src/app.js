@@ -58,8 +58,10 @@ app.get('/status', (req, res) => res.status(200).send('ok'));
 app.use(reportInteraction);
 
 // Routes
-app.use('/books',  require('./routes/books'));
-app.use('/errors', require('./routes/errors'));
+app.use('/books',      require('./routes/books'));
+app.use('/computers',  require('./routes/computers'));
+app.use('/projectors', require('./routes/projectors'));
+app.use('/errors',     require('./routes/errors'));
 
 // EPB error tracking — must come after routes
 app.use(reportInteractionErrorHandler);
