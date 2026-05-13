@@ -27,12 +27,14 @@ const { registerExpressEndpoints } = require('end-point-blank-js/src/express/end
 // Configure EndPointBlank
 // ---------------------------------------------------------------------------
 
+const INTAKE_URL = process.env.INTAKE_API_URL || 'http://localhost:4001';
+
 epb.configure({
-  baseUrl: 'http://localhost:4001',
+  baseUrl: INTAKE_URL,
   appName: 'epb-test-js',
-  environment: 'development',
-  clientId: 'kiKhVaXGr1oz4Ig8F2kGrTuDvd9RMwLE',
-  clientSecret: 'lr+CFT3JoqnHalXZwR1Be5oaOsRBfYOQKpBNi+uaRyqopv1dp6gCuVzR9y4RdBI5',
+  environment: process.env.NODE_ENV || 'development',
+  clientId: 'YOScUN1M9eFWawcMN14gfu/6d0y6RlvG',
+  clientSecret: 'up3udV3drFAnjhcqUxDI0BXJ+Hr6Hd6wHwuZcQNXXpFj6RNkmTNH87E3QrH4OYrD',
   applicationVersion: (() => {
     try { return execSync('git rev-parse HEAD', { cwd: __dirname }).toString().trim(); }
     catch { return process.env.GIT_COMMIT || '0'; }
@@ -40,7 +42,7 @@ epb.configure({
 });
 
 // logBaseUrl is not in configure()'s allowed list — set directly
-epb.config.logBaseUrl = 'http://localhost:4001';
+epb.config.logBaseUrl = INTAKE_URL;
 
 // ---------------------------------------------------------------------------
 // Express app
