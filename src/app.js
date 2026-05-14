@@ -18,6 +18,7 @@
 
 const { execSync } = require('child_process');
 const express = require('express');
+const morgan = require('morgan');
 const epb = require('end-point-blank-js');
 const { setup: dbSetup } = require('./db');
 const { reportInteraction, reportInteractionErrorHandler } = require('end-point-blank-js/src/middleware/report-interaction');
@@ -50,6 +51,7 @@ epb.config.logBaseUrl = INTAKE_URL;
 // ---------------------------------------------------------------------------
 
 const app = express();
+app.use(morgan('combined'));
 app.use(express.json());
 
 // Health check — before EPB middleware so it isn't tracked

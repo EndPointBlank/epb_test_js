@@ -9,6 +9,7 @@
   "dependencies": {
     "end-point-blank-js": "git+https://github.com/EndPointBlank/end_point_blank_js.git",
     "express": "^4.18.2",
+    "morgan": "^1.10.0",
     "pg": "^8.11.0"
   }
 }
