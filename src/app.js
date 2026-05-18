@@ -72,7 +72,7 @@ app.use(reportInteractionErrorHandler);
 // Final error handler — sends JSON response for unhandled errors
 app.use((err, req, res, next) => { // eslint-disable-line no-unused-vars
   if (err instanceof UnauthorizedError) {
-    return res.status(401).json({ error: 'Unauthorized' });
+    return res.status(err.statusCode || 401).json({ error: err.message });
   }
   console.error(err.stack);
   res.status(500).json({ error: err.message || 'Internal Server Error' });
