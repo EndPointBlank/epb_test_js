@@ -2,10 +2,26 @@
 
 const { Pool } = require('pg');
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://localhost:5432/epb_test_js_development',
-  ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false,
-});
+// On Render, DATABASE_URL carries credentials. Locally we fall back to a
+// `postgres`/`postgres` user (the repo convention) — without that the pg
+// driver defaults to the OS user, which usually isn't a Postgres role.
+const localUser = process.env.PGUSER || 'postgres';
+const localPassword = process.env.PGPASSWORD || 'postgres';
+const localHost = process.env.PGHOST || 'localhost';
+const localDb = 'epb_test_js_development';
+
+const pool = process.env.DATABASE_URL
+  ? new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: { rejectUnauthorized: false },
+    })
+  : new Pool({
+      host: localHost,
+      port: 5432,
+      database: localDb,
+      user: localUser,
+      password: localPassword,
+    });
 
 async function setup() {
   await pool.query(`
