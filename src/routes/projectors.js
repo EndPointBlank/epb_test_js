@@ -8,7 +8,7 @@ const { projectorsByFacility } = require('../data');
 
 const router = Router();
 
-router.get('/', authorized, versioned(['1'], { state: 'Current' }), async (req, res, next) => {
+router.get('/', authorized, versioned(['1']), async (req, res, next) => {
   try {
     LogWriter.info('Fetching projectors list');
     res.json({ projectors: await projectorsByFacility() });

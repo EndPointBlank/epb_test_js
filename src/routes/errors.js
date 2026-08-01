@@ -12,7 +12,7 @@ const router = Router();
  * Intentionally throws an error to exercise EndPointBlank error tracking.
  * Equivalent to ErrorsController in epb_test_rails.
  */
-router.get('/', authorized, versioned(['1'], { state: 'Current' }), (req, res) => {
+router.get('/', authorized, versioned(['1']), (req, res) => {
   throw new Error('This is a test error for error tracking.');
 });
 

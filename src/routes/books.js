@@ -8,14 +8,14 @@ const { listBooks, addBook, removeBook } = require('../data');
 
 const router = Router();
 
-router.get('/', authorized, versioned(['1'], { state: 'Current' }), async (req, res, next) => {
+router.get('/', authorized, versioned(['1']), async (req, res, next) => {
   try {
     LogWriter.info('Fetching books list');
     res.json({ books: await listBooks() });
   } catch (err) { next(err); }
 });
 
-router.post('/', authorized, versioned(['1'], { state: 'Current' }), async (req, res, next) => {
+router.post('/', authorized, versioned(['1']), async (req, res, next) => {
   try {
     const { title, author, student_id, teacher_id } = req.body;
     if (!title || !author) {
@@ -27,7 +27,7 @@ router.post('/', authorized, versioned(['1'], { state: 'Current' }), async (req,
   } catch (err) { next(err); }
 });
 
-router.delete('/:id', authorized, versioned(['1'], { state: 'Current' }), async (req, res, next) => {
+router.delete('/:id', authorized, versioned(['1']), async (req, res, next) => {
   try {
     const id = parseInt(req.params.id, 10);
     const book = await removeBook(id);
