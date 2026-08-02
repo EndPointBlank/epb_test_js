@@ -8,7 +8,7 @@ const { listComputers } = require('../data');
 
 const router = Router();
 
-router.get('/', authorized, versioned(['1'], { state: 'Current' }), async (req, res, next) => {
+router.get('/', authorized, versioned(['1']), async (req, res, next) => {
   try {
     LogWriter.info('Fetching computers list');
     res.json({ computers: await listComputers() });
