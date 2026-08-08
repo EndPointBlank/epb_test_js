@@ -33,10 +33,16 @@ const INTAKE_URL = process.env.INTAKE_API_URL || 'http://localhost:4001';
 
 epb.configure({
   baseUrl: INTAKE_URL,
-  appName: 'epb-test-js',
+  appName: process.env.EPB_APP_NAME || 'epb-test-js',
   environment: process.env.NODE_ENV || 'development',
-  clientId: 'Sb3JsTeSd8EvPmQnLuTwFc4YjHgNvOq',
-  clientSecret: 'yK4pQmB7dN3sOkR2tF6bXeJiW0aFzGoBMaVnQkDpEyHwIlZcSxrUfOgtXu9P1J8',
+  clientId: process.env.EPB_CLIENT_ID || 'Sb3JsTeSd8EvPmQnLuTwFc4YjHgNvOq',
+  clientSecret:
+    process.env.EPB_CLIENT_SECRET ||
+    'yK4pQmB7dN3sOkR2tF6bXeJiW0aFzGoBMaVnQkDpEyHwIlZcSxrUfOgtXu9P1J8',
+  // Seconds. 0 disables caching entirely, which the e2e harness relies on so an
+  // authorization decision can be observed changing without a restart. The SDK
+  // reads this with `??`, so 0 is honoured rather than falling back to 300.
+  cacheTtl: process.env.EPB_CACHE_TTL ? Number(process.env.EPB_CACHE_TTL) : undefined,
   applicationVersion: (() => {
     try { return execSync('git rev-parse HEAD', { cwd: __dirname }).toString().trim(); }
     catch { return process.env.GIT_COMMIT || '0'; }
