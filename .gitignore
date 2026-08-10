@@ -1,1 +1,5 @@
 node_modules/
+
+# macOS Finder metadata. Nothing tracked here today; this keeps it that way
+# (app_portal had one committed, which showed dirty in every status check).
+.DS_Store
