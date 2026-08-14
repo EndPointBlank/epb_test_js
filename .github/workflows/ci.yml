@@ -19,10 +19,11 @@ jobs:
         with:
           node-version: '22'
 
-      # Reinstalls the SDK from end_point_blank_js master, so a breaking SDK
-      # change turns this red here rather than in someone's dev environment.
+      # Installs the SDK at the tag package.json pins, so this job tests exactly
+      # what a deploy would ship. Breakage on the SDK's master is the
+      # `sdk-canary` job's business, not this one's.
       # build.sh's createdb call is already tolerant of there being no database.
-      - name: Build against the current SDK
+      - name: Build against the pinned SDK
         run: ./build.sh
 
       # Installing is not enough — it proves npm could resolve the package, not
@@ -30,6 +31,47 @@ jobs:
       # SDK surface this app actually uses: authorized, versioned and LogWriter.
       # No database is needed; the routes open connections lazily.
       - name: Check the application loads against the SDK
+        run: |
+          node -e "
+            const fs = require('fs');
+            const routes = fs.readdirSync('src/routes').filter(f => f.endsWith('.js'));
+            for (const f of routes) require('./src/routes/' + f);
+            console.log('loaded ' + routes.length + ' route modules');
+          "
+
+  # Early warning: install the SDK from master rather than the pinned tag, so a
+  # breaking SDK change shows up here instead of in someone's dev environment.
+  #
+  # Deliberately a separate job, and deliberately allowed to fail. This used to
+  # be a drop-and-reinstall inside build.sh, which meant the SDK master could
+  # decide what a release build shipped -- the pin in package.json was advisory.
+  # Now the pin governs the build and this job only reports.
+  #
+  # A red X here means the SDK's master has moved in a way this app cannot take
+  # yet. It does not block the merge; it tells you the next SDK bump has work in
+  # it.
+  sdk-canary:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Build, then override the SDK with master
+        run: |
+          ./build.sh
+          rm -rf node_modules/end-point-blank-js
+          npm uninstall end-point-blank-js --silent
+          npm install end-point-blank-js@git+https://github.com/EndPointBlank/end_point_blank_js.git
+          node -e "console.log('canary SDK', require('end-point-blank-js/package.json').version)"
+
+      - name: Check the application still loads against SDK master
         run: |
           node -e "
             const fs = require('fs');

@@ -14,9 +14,13 @@ fi
 
 npm install
 
-# npm pins git deps by SHA in package-lock.json and won't re-resolve when the
-# package version is unchanged. Drop and reinstall end-point-blank-js so a
-# fresh master commit gets picked up.
-rm -rf node_modules/end-point-blank-js
-npm uninstall end-point-blank-js --silent
-npm install end-point-blank-js@git+https://github.com/EndPointBlank/end_point_blank_js.git
+# The SDK comes from package.json, which pins an exact tag. There used to be a
+# drop-and-reinstall from master here: package.json tracked the SDK's default
+# branch, and npm won't re-resolve a git dep whose version string is unchanged
+# even though the source moved underneath it.
+#
+# That reinstall named the repo directly with no ref, so it overrode the pin --
+# this script installed master no matter what package.json said, and a deploy
+# could not reproduce a known-good SDK. The early-warning it provided is now the
+# `sdk-canary` job in .github/workflows/ci.yml, which installs from master, is
+# allowed to fail, and does not decide what this build ships.
