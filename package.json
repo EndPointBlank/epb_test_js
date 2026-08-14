@@ -7,7 +7,7 @@
     "start": "node src/app.js"
   },
   "dependencies": {
-    "end-point-blank-js": "github:EndPointBlank/end_point_blank_js",
+    "end-point-blank-js": "github:EndPointBlank/end_point_blank_js#v0.6.0",
     "express": "^4.18.2",
     "morgan": "^1.10.0",
     "pg": "^8.11.0"
