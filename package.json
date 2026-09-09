@@ -4,7 +4,8 @@
   "description": "Express demo app using the EndPointBlank JS library — computers, projectors, and error tracking",
   "main": "src/app.js",
   "scripts": {
-    "start": "node src/app.js"
+    "start": "node src/app.js",
+    "test": "node --test test/*.test.js"
   },
   "dependencies": {
     "end-point-blank-js": "github:EndPointBlank/end_point_blank_js#v0.6.0",
