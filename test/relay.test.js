@@ -280,7 +280,7 @@ test('a trailing slash on the configured base URL does not double up', async (t)
   assert.equal(double.requests[0].url, '/mesh/relay');
 });
 
-test('/mesh/reports relays to the downstream relay path', async (t) => {
+test('/mesh/reports forwards to the downstream /mesh/reports, not to /mesh/relay', async (t) => {
   const double = await startDouble(meshReply());
   t.after(() => double.close());
   const node = await start(t, { appName: APP, downstreamUrl: double.url });
@@ -292,8 +292,50 @@ test('/mesh/reports relays to the downstream relay path', async (t) => {
 
   assert.equal(response.status, 200);
   assert.equal(double.requests.length, 1);
-  assert.equal(double.requests[0].url, '/mesh/relay');
+  // The path is preserved across the hop. Forwarding the negative control to
+  // `/mesh/relay` would launder a wrongly granted `reports` into ordinary
+  // relay traffic, which is the one thing this endpoint exists to catch.
+  assert.equal(double.requests[0].url, '/mesh/reports');
   assert.equal(double.requests[0].headers['x-epb-test-hops'], '1');
+});
+
+test('a downstream that refuses reports is not rescued by relaying to /mesh/relay', async (t) => {
+  // The provisioning failure the preserved path exists for: `reports` is not
+  // granted, `relay` is. Forwarding to `relay` would answer 200 and the run
+  // would look clean; preserving the path keeps the refusal visible.
+  const double = await startDouble((req, res) => {
+    if (req.url === '/mesh/reports') {
+      res.writeHead(403, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Authorization failed: access_denied' }));
+      return;
+    }
+    meshReply()(req, res);
+  });
+  t.after(() => double.close());
+  const node = await start(t, { appName: APP, downstreamUrl: double.url });
+
+  const response = await postMesh(`${node.url}/mesh/reports`, {
+    headers: { 'x-epb-test-hops': '2' },
+    body: '{}',
+  });
+
+  assert.equal(response.status, 502);
+  assert.equal(response.body.error, 'downstream_failed');
+  assert.equal(response.body.downstream_status, 403);
+  assert.deepEqual(double.requests.map(r => r.url), ['/mesh/reports']);
+});
+
+test('a trailing slash on the base URL does not double up for reports either', async (t) => {
+  const double = await startDouble(meshReply());
+  t.after(() => double.close());
+  const node = await start(t, { appName: APP, downstreamUrl: `${double.url}///` });
+
+  await postMesh(`${node.url}/mesh/reports`, {
+    headers: { 'x-epb-test-hops': '1' },
+    body: '{}',
+  });
+
+  assert.equal(double.requests[0].url, '/mesh/reports');
 });
 
 test('a clamped budget is forwarded clamped', async (t) => {

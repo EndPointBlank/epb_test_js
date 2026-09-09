@@ -26,6 +26,9 @@ const { setup: dbSetup } = require('./db');
 const { reportInteraction, reportInteractionErrorHandler } = require('end-point-blank-js/src/middleware/report-interaction');
 const { UnauthorizedError } = require('end-point-blank-js/src/unauthorized-error');
 const { registerExpressEndpoints } = require('end-point-blank-js/src/express/endpoint-registrar');
+// The mesh forwards to the path it was called on, so where the router is
+// mounted is part of the wire contract rather than a local choice.
+const { MESH_MOUNT } = require('./mesh/router');
 
 // ---------------------------------------------------------------------------
 // Configure EndPointBlank
@@ -73,7 +76,7 @@ app.use('/books',      require('./routes/books'));
 app.use('/computers',  require('./routes/computers'));
 app.use('/projectors', require('./routes/projectors'));
 app.use('/errors',     require('./routes/errors'));
-app.use('/mesh',       require('./routes/mesh'));
+app.use(MESH_MOUNT,    require('./routes/mesh'));
 
 // EPB error tracking — must come after routes
 app.use(reportInteractionErrorHandler);
