@@ -39,6 +39,14 @@ jobs:
             console.log('loaded ' + routes.length + ' route modules');
           "
 
+      # The hop-budget contract (sc-264). Runs on node:test, which is built in,
+      # so there are no devDependencies to install. Every socket the suite opens
+      # terminates on 127.0.0.1: no staging, no AWS, no intake, no app_portal,
+      # no database and no mesh. If this ever needs one of those, the
+      # implementation has bound itself to something it should not have.
+      - name: Test
+        run: npm test
+
   # Early warning: install the SDK from master rather than the pinned tag, so a
   # breaking SDK change shows up here instead of in someone's dev environment.
   #
@@ -79,3 +87,9 @@ jobs:
             for (const f of routes) require('./src/routes/' + f);
             console.log('loaded ' + routes.length + ' route modules');
           "
+
+      # The mesh suite drives the SDK's real `authorized` middleware and its
+      # real outbound authorization seam, so an SDK master that moves either of
+      # them shows up here rather than in someone's dev environment.
+      - name: Test against SDK master
+        run: npm test

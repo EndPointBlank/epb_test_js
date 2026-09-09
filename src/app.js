@@ -5,10 +5,12 @@
  *
  * Endpoints
  * ---------
- * GET    /books      List all books.
- * POST   /books      Add a new book.
- * DELETE /books/:id  Remove a book by id.
- * GET    /errors     Intentionally throws to exercise EndPointBlank error tracking.
+ * GET    /books          List all books.
+ * POST   /books          Add a new book.
+ * DELETE /books/:id      Remove a book by id.
+ * GET    /errors         Intentionally throws to exercise EndPointBlank error tracking.
+ * POST   /mesh/relay     The sc-263 mesh call, bounded by the hop budget.
+ * POST   /mesh/reports   The mesh negative control, deliberately not granted.
  *
  * All routes are protected by the `authorized` middleware (EndPointBlank
  * authorization check).  The reportInteraction / reportInteractionErrorHandler
@@ -71,6 +73,7 @@ app.use('/books',      require('./routes/books'));
 app.use('/computers',  require('./routes/computers'));
 app.use('/projectors', require('./routes/projectors'));
 app.use('/errors',     require('./routes/errors'));
+app.use('/mesh',       require('./routes/mesh'));
 
 // EPB error tracking — must come after routes
 app.use(reportInteractionErrorHandler);
@@ -89,16 +92,27 @@ app.use((err, req, res, next) => { // eslint-disable-line no-unused-vars
 // ---------------------------------------------------------------------------
 
 const PORT = process.env.PORT || 3003;
-dbSetup()
-  .then(() => {
-    app.listen(PORT, () => {
-      console.log(`[epb-test-js] Listening on http://localhost:${PORT}`);
-      registerExpressEndpoints(app);
+
+/**
+ * Only when this file is the entry point. Requiring it — which the mesh tests
+ * do, to drive the real middleware stack rather than a rebuilt one — must not
+ * open a database connection or bind a port. `node src/app.js`, the Dockerfile
+ * CMD and `./start` all still run this branch.
+ */
+function boot() {
+  dbSetup()
+    .then(() => {
+      app.listen(PORT, () => {
+        console.log(`[epb-test-js] Listening on http://localhost:${PORT}`);
+        registerExpressEndpoints(app);
+      });
+    })
+    .catch(err => {
+      console.error('Database setup failed:', err);
+      process.exit(1);
     });
-  })
-  .catch(err => {
-    console.error('Database setup failed:', err);
-    process.exit(1);
-  });
+}
+
+if (require.main === module) boot();
 
 module.exports = app;
