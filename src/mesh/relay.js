@@ -18,6 +18,10 @@
  *   502  the downstream call failed — refused, timed out, non-200. A refusal
  *        is the negative control's entire output; swallowing it into a 200
  *        would delete the measurement.
+ *
+ * A 502 also carries `origin`: who actually refused, readable at the entry
+ * point. See {@link failureOrigin} — it is the one rule here that fails
+ * silently and plausibly when it is got wrong.
  */
 
 const { parseHops, runIdentifier, HOPS_HEADER, RUN_HEADER } = require('./hops');
@@ -39,6 +43,15 @@ const DEFAULT_FORWARD_PATH = '/mesh/relay';
 
 /** The contract's ceiling on `downstream_error`. */
 const MAX_ERROR_CHARS = 500;
+
+/**
+ * The contract's ceiling on `origin.error`, deliberately far below
+ * {@link MAX_ERROR_CHARS}. `origin` exists because a nested error truncates
+ * away with depth; a reason long enough to be truncated inside `origin` would
+ * reintroduce the very problem, so it is short by construction and never
+ * nested.
+ */
+const MAX_ORIGIN_ERROR_CHARS = 200;
 
 const CONNECT_TIMEOUT_MS = 3_000;
 const REQUEST_TIMEOUT_MS = 10_000;
@@ -103,6 +116,11 @@ function createRelayHandler(options = {}) {
           'EPB_MESH_DOWNSTREAM_URL configured. Refusing to answer as though ' +
           'the budget had been exhausted.',
         );
+        // No `origin` here, and no `terminated`. `origin` names the hop whose
+        // own downstream call failed, and this hop made no call at all; the
+        // hop above sees this 500, finds no origin in it, and mints one naming
+        // itself and status 500 — which is the correct attribution, because an
+        // unconfigured node is a fact about the edge into it.
         return res.status(500).json({
           app,
           hops_received: hopsReceived,
@@ -137,22 +155,33 @@ function createRelayHandler(options = {}) {
           requestTimeoutMs,
         });
       } catch (err) {
-        // No status: the call never landed.
-        return failed(res, app, hopsReceived, null, err.message);
+        // No status, and no body to inherit an origin from: the call never
+        // landed, so this hop is necessarily the origin of the failure.
+        return failed(res, {
+          app, hopsReceived, status: null, message: err.message, body: null,
+        });
       }
 
       if (response.status !== 200) {
-        return failed(res, app, hopsReceived, response.status, response.body);
+        return failed(res, {
+          app, hopsReceived, status: response.status,
+          message: response.body, body: response.body,
+        });
       }
 
       let downstream;
       try {
         downstream = JSON.parse(response.body);
       } catch {
-        return failed(
-          res, app, hopsReceived, response.status,
-          `downstream answered 200 with a body that is not JSON: ${response.body}`,
-        );
+        // A body that is not JSON cannot be carrying an `origin`, but it is
+        // passed anyway rather than special-cased: one path through
+        // `failureOrigin` is one fewer place for the non-overwrite rule to be
+        // implemented differently.
+        return failed(res, {
+          app, hopsReceived, status: response.status,
+          message: `downstream answered 200 with a body that is not JSON: ${response.body}`,
+          body: response.body,
+        });
       }
 
       return res.status(200).json({
@@ -172,20 +201,123 @@ function createRelayHandler(options = {}) {
 
 /**
  * The 502. A downstream refusal is a result to report, never one to swallow.
+ *
+ * `downstream_status` and `downstream_error` keep their per-hop meaning
+ * exactly: they describe the call *this* application made. `origin` is the
+ * end-to-end companion to them, and the two answer different questions —
+ * a 403 next door and a 403 four hops away must stay distinguishable.
+ *
+ * @param {import('express').Response} res
+ * @param {object} failure
+ * @param {string} failure.app this application's own name.
+ * @param {number} failure.hopsReceived this hop's own parsed budget.
+ * @param {number|null} failure.status the downstream HTTP status, or null when
+ *   there was none: a connect error or a timeout.
+ * @param {string} failure.message the per-hop reason, truncated into
+ *   `downstream_error` at {@link MAX_ERROR_CHARS}.
+ * @param {string|null} failure.body the raw downstream response body, which is
+ *   where an `origin` set further down the chain arrives.
  */
-function failed(res, app, hopsReceived, downstreamStatus, message) {
+function failed(res, { app, hopsReceived, status, message, body }) {
   const downstreamError = truncate(String(message ?? ''), MAX_ERROR_CHARS);
+  const origin = failureOrigin({ app, hopsReceived, status, message, body });
+
   console.error(
     `[mesh] ${app} downstream call failed ` +
-    `(status ${downstreamStatus === null ? 'none' : downstreamStatus}): ${downstreamError}`,
+    `(status ${status === null ? 'none' : status}): ${downstreamError} ` +
+    `[origin ${origin.app} status ${origin.status === null ? 'none' : origin.status}]`,
   );
+
   return res.status(502).json({
     app,
     hops_received: hopsReceived,
     error: 'downstream_failed',
-    downstream_status: downstreamStatus,
+    downstream_status: status,
     downstream_error: downstreamError,
+    origin,
   });
+}
+
+/**
+ * The `origin` object: **who refused**, recoverable at the entry point.
+ *
+ * `downstream_status` is per-hop, so the original status only rides up nested
+ * inside `downstream_error` — and that nesting does not survive depth. Each hop
+ * truncates the nested error to 500 characters against roughly 110 characters
+ * of envelope per level, so the far side of a five-node ring is truncated away
+ * by the time it reaches the entry point. Those are exactly the refusals sc-265
+ * must count, so it counts them off this field and never off the nested walk.
+ *
+ * **Set once, by the hop whose own downstream call failed — the observer, not
+ * the refuser.** The observer is the only participant that reliably knows both
+ * the status it received and its own identity; the refuser may not even have
+ * run any of our code.
+ *
+ * **Then forwarded verbatim by every hop above.** An `origin` already present
+ * in a downstream failure body is returned unchanged, so the first failure
+ * going up wins and that one is the deepest. Overwriting it is the mistake this
+ * function exists to make impossible: it would not raise anything, it would
+ * simply name the wrong application, and every hop above would repeat the lie
+ * with total confidence.
+ *
+ * Two shape guards, both load-bearing in JavaScript:
+ *
+ *   * the body may be JSON that is not an object — `null`, a number, an array.
+ *     `JSON.parse('null').origin` throws, and `['x'].origin` is quietly
+ *     `undefined`, so the body's shape is checked before it is read at all.
+ *   * `origin` itself may be present without being the contract's object. A
+ *     string `origin` (a CORS-flavoured error body will have one) is not an
+ *     origin to forward, and shipping it would hand sc-265 a field it cannot
+ *     read. Only a plain object is inherited; anything else means this hop is
+ *     the deepest that reported one, and it mints its own.
+ *
+ * @returns {{app: string, status: number|null, hops_received: number, error: string}}
+ */
+function failureOrigin({ app, hopsReceived, status, message, body }) {
+  const parsed = parseJsonObject(body);
+
+  const inherited = parsed === null ? null : parsed.origin;
+  if (isPlainObject(inherited)) return inherited;
+
+  // A JSON error body's own `error` is already the short reason this field
+  // wants ("access_denied", "downstream_not_configured"); the raw body or the
+  // transport error is the fallback when there is no such field.
+  const reason = parsed !== null && typeof parsed.error === 'string' && parsed.error !== ''
+    ? parsed.error
+    : String(message ?? '');
+
+  return {
+    app,
+    status,
+    hops_received: hopsReceived,
+    error: truncate(reason, MAX_ORIGIN_ERROR_CHARS),
+  };
+}
+
+/**
+ * The body parsed into a plain object, or null if it is neither.
+ *
+ * Anything that is not JSON, and any JSON that is not an object — `null`,
+ * `true`, `4`, `"text"`, `[…]` — answers null rather than something a property
+ * can be read off.
+ *
+ * @param {string|null} body
+ * @returns {object|null}
+ */
+function parseJsonObject(body) {
+  if (typeof body !== 'string') return null;
+  let parsed;
+  try {
+    parsed = JSON.parse(body);
+  } catch {
+    return null;
+  }
+  return isPlainObject(parsed) ? parsed : null;
+}
+
+/** True for a JSON object, false for null and for an array. */
+function isPlainObject(value) {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 /**
@@ -222,4 +354,9 @@ function truncate(value, limit) {
   return value.length > limit ? value.slice(0, limit) : value;
 }
 
-module.exports = { createRelayHandler, DEFAULT_FORWARD_PATH, MAX_ERROR_CHARS };
+module.exports = {
+  createRelayHandler,
+  DEFAULT_FORWARD_PATH,
+  MAX_ERROR_CHARS,
+  MAX_ORIGIN_ERROR_CHARS,
+};
