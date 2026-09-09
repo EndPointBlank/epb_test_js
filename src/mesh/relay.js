@@ -27,8 +27,15 @@ const { downstreamAuthHeader } = require('./downstream-auth');
 /** The repository name, per the contract. Not the hyphenated EPB_APP_NAME. */
 const DEFAULT_APP_NAME = 'epb_test_js';
 
-/** Appended to the configured base URL. The ring always calls the relay. */
-const RELAY_PATH = '/mesh/relay';
+/**
+ * Appended to the configured base URL when nothing else is supplied.
+ *
+ * The path a hop forwards to is the path it was itself called on: `/mesh/relay`
+ * forwards to the next application's `/mesh/relay`, and `/mesh/reports`
+ * forwards to its `/mesh/reports`. The router supplies the right one per route;
+ * this is only the default for a handler built without one.
+ */
+const DEFAULT_FORWARD_PATH = '/mesh/relay';
 
 /** The contract's ceiling on `downstream_error`. */
 const MAX_ERROR_CHARS = 500;
@@ -37,7 +44,11 @@ const CONNECT_TIMEOUT_MS = 3_000;
 const REQUEST_TIMEOUT_MS = 10_000;
 
 /**
- * Builds the Express handler shared by `/mesh/relay` and `/mesh/reports`.
+ * Builds the Express handler for one mesh endpoint.
+ *
+ * `/mesh/relay` and `/mesh/reports` behave identically apart from the path they
+ * forward to, which is the path they were called on, so the router builds one
+ * of these per route rather than sharing a single handler between them.
  *
  * Every dependency is an option with a default, so the whole contract is
  * testable against local doubles: no staging, no AWS, no intake, no mesh.
@@ -46,6 +57,8 @@ const REQUEST_TIMEOUT_MS = 10_000;
  * @param {string|Function} [options.appName] reported as `app`.
  * @param {string|Function} [options.downstreamUrl] base URL of the next
  *   application; blank or absent means nothing is configured.
+ * @param {string} [options.forwardPath] the absolute path appended to that base
+ *   URL. Defaults to `/mesh/relay`.
  * @param {Function} [options.authHeader] `(url) => Promise<string>`, the SDK
  *   authorization seam.
  * @param {Function} [options.postJson] the outbound HTTP call.
@@ -56,6 +69,7 @@ const REQUEST_TIMEOUT_MS = 10_000;
 function createRelayHandler(options = {}) {
   const appName = resolver(options.appName, () => process.env.EPB_MESH_APP_NAME || DEFAULT_APP_NAME);
   const downstreamUrl = resolver(options.downstreamUrl, () => process.env.EPB_MESH_DOWNSTREAM_URL);
+  const forwardPath = options.forwardPath || DEFAULT_FORWARD_PATH;
   const authHeader = options.authHeader || downstreamAuthHeader;
   const call = options.postJson || postJson;
   const connectTimeoutMs = options.connectTimeoutMs ?? CONNECT_TIMEOUT_MS;
@@ -100,7 +114,13 @@ function createRelayHandler(options = {}) {
         });
       }
 
-      const target = `${base.replace(/\/+$/, '')}${RELAY_PATH}`;
+      // The path is PRESERVED across hops. `/mesh/reports` is a negative
+      // control on an API package sc-263 deliberately does not grant, and
+      // forwarding it to `/mesh/relay` would turn a wrongly granted `reports`
+      // at hop one into ordinary successful relay traffic -- a provisioning
+      // error rendered invisible, on the very endpoint that exists to catch it.
+      // Preserving the path keeps it failing, and loud, at every hop.
+      const target = `${base.replace(/\/+$/, '')}${forwardPath}`;
       const hopsForwarded = hopsReceived - 1;
 
       const headers = { [HOPS_HEADER]: String(hopsForwarded) };
@@ -202,4 +222,4 @@ function truncate(value, limit) {
   return value.length > limit ? value.slice(0, limit) : value;
 }
 
-module.exports = { createRelayHandler, RELAY_PATH, MAX_ERROR_CHARS };
+module.exports = { createRelayHandler, DEFAULT_FORWARD_PATH, MAX_ERROR_CHARS };

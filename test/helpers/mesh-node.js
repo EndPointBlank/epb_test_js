@@ -13,7 +13,7 @@
 const express = require('express');
 const http = require('node:http');
 const { once } = require('node:events');
-const { createMeshRouter } = require('../../src/mesh/router');
+const { createMeshRouter, MESH_MOUNT } = require('../../src/mesh/router');
 const { UnauthorizedError } = require('end-point-blank-js/src/unauthorized-error');
 
 /**
@@ -39,7 +39,9 @@ async function startNode({ appName, downstreamUrl = null, ...options }) {
     inbound.push({ method: req.method, path: req.path, headers: { ...req.headers } });
     next();
   });
-  app.use('/mesh', createMeshRouter({ appName, downstreamUrl: () => downstream(), ...options }));
+  // Mounted where src/app.js mounts it: a hop forwards to the path it was
+  // called on, so a chain wired up at a different prefix would not connect.
+  app.use(MESH_MOUNT, createMeshRouter({ appName, downstreamUrl: () => downstream(), ...options }));
 
   // Mirrors src/app.js's final handler, so a refusal from `authorized` comes
   // back as the status the SDK put on it rather than as Express's HTML 500.
@@ -58,7 +60,7 @@ async function startNode({ appName, downstreamUrl = null, ...options }) {
     inbound,
     url: `http://127.0.0.1:${server.address().port}`,
     /** Requests this node received on a mesh path. */
-    meshRequests: () => inbound.filter(r => r.path.startsWith('/mesh/')),
+    meshRequests: () => inbound.filter(r => r.path.startsWith(`${MESH_MOUNT}/`)),
     /** Repoints this node, e.g. to close a chain into a ring. */
     setDownstream: (url) => { downstream = () => url; },
     close: () => closeServer(server),

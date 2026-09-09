@@ -165,3 +165,37 @@ test('a budget over the clamp still terminates, at 64', async (t) => {
   assert.equal(totalMeshRequests(chain.nodes), 65);
   assert.equal(nestingDepth(response.body), 64);
 });
+
+test('a /mesh/reports chain lands on /mesh/reports at every hop', async (t) => {
+  const chain = await startChain(5);
+  t.after(() => chain.close());
+
+  const response = await postMesh(`${chain.entry.url}/mesh/reports`, {
+    headers: { 'x-epb-test-hops': '3' },
+    body: '{}',
+  });
+
+  assert.equal(response.status, 200);
+  // Preserving the path changes where a hop goes, not how many hops there are.
+  assert.equal(totalMeshRequests(chain.nodes), 4);
+  assert.equal(nestingDepth(response.body), 3);
+
+  // Every one of them on the negative control's own path. A hop that diverted
+  // to /mesh/relay would convert a wrongly granted `reports` into ordinary
+  // successful relay traffic, and the run would look clean.
+  const paths = chain.nodes.flatMap(node => node.meshRequests()).map(r => r.path);
+  assert.deepEqual(paths, Array(4).fill('/mesh/reports'));
+});
+
+test('a /mesh/relay chain still lands only on /mesh/relay', async (t) => {
+  const chain = await startChain(5);
+  t.after(() => chain.close());
+
+  await postMesh(`${chain.entry.url}/mesh/relay`, {
+    headers: { 'x-epb-test-hops': '3' },
+    body: '{}',
+  });
+
+  const paths = chain.nodes.flatMap(node => node.meshRequests()).map(r => r.path);
+  assert.deepEqual(paths, Array(4).fill('/mesh/relay'));
+});
