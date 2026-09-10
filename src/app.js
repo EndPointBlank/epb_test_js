@@ -30,7 +30,6 @@ const { setup: dbSetup } = require('./db');
 const { reportInteraction, reportInteractionErrorHandler } = require('end-point-blank-js/src/middleware/report-interaction');
 const { UnauthorizedError } = require('end-point-blank-js/src/unauthorized-error');
 const { registerExpressEndpoints } = require('end-point-blank-js/src/express/endpoint-registrar');
-const { authenticated } = require('end-point-blank-js/src/express/authenticated');
 // The mesh forwards to the path it was called on, so where the router is
 // mounted is part of the wire contract rather than a local choice.
 const { MESH_MOUNT } = require('./mesh/router');
@@ -81,35 +80,8 @@ app.use('/books',      require('./routes/books'));
 app.use('/computers',  require('./routes/computers'));
 app.use('/projectors', require('./routes/projectors'));
 app.use('/errors',     require('./routes/errors'));
+app.use('/whoami',     require('./routes/whoami'));
 app.use(MESH_MOUNT,    require('./routes/mesh'));
-
-// The one route behind `authenticated` rather than `authorized`.
-//
-// These two guards are different code paths through the SDK: `authorized` asks
-// intake whether a grant covers this endpoint, `authenticated` asks only
-// whether the credential itself is good. Until now every route in every demo
-// app used `authorized`, so nothing anywhere called the second one -- which is
-// exactly how it dropped intake's refusal status for two releases without a
-// test going red (sc-307). A pass/fail count over these apps cannot see a path
-// nothing calls, so the fix is a route that calls it, not another assertion
-// about the paths that were already covered.
-//
-// Mounted directly on `app` rather than as a router under `src/routes/`,
-// deliberately, and this is load-bearing: `authenticated` resolves the endpoint
-// path as `req.route?.path || req.path || req.url` and never prefixes
-// `req.baseUrl`, while `authorized` goes through the SDK's shared
-// `requestPath(req)`, which does. On a mounted router the two disagree --
-// a router at `/whoami` with `router.get('/')` authenticates as `/` -- and per
-// `request-path.js`'s own docstring, registration and authorization must
-// produce byte-identical paths or every request fails `missing_target_endpoint`.
-// At the top level `req.baseUrl` is empty, so both agree and the route works.
-// That divergence is real and still unfixed on the SDK's master; it is the
-// reason for the placement rather than an incidental style choice.
-//
-// No `versioned(...)` here: endpoint versions belong to the authorize path,
-// which resolves a specific endpoint. Authentication judges the credential.
-app.get('/whoami', authenticated, (req, res) =>
-  res.status(200).json({ application: epb.config.appName, authenticated: true }));
 
 // EPB error tracking — must come after routes
 app.use(reportInteractionErrorHandler);

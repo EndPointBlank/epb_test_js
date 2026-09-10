@@ -100,7 +100,7 @@ test('GET /whoami really does go through the authenticate path', async (t) => {
   // what makes the guard reachable at all, so assert the wire, not the import.
   const [only] = intake.calls;
   assert.equal(only.url, '/api/authorize');
-  assert.equal(only.action, 'GET');
+  assert.equal(only.httpMethod, 'GET');
   assert.match(only.clientAuth, /^Basic caller-/);
 });
 
@@ -227,12 +227,16 @@ test('both guards answer 503 when intake cannot be reached', async (t) => {
 test('the path sent to intake for /whoami is /whoami', async (t) => {
   // Registration and authorization must produce byte-identical paths or intake
   // answers `missing_target_endpoint` for every request (see the SDK's
-  // `request-path.js`). `authenticated` builds the path itself --
+  // `request-path.js`). `authenticated` used to build the path itself --
   // `req.route?.path || req.path || req.url` -- instead of using the shared
-  // `requestPath(req)`, so it never prefixes `req.baseUrl`. That is fine here
-  // only because the route is mounted on `app` rather than on a router, which
-  // is why app.js mounts it that way. This asserts the property that placement
-  // buys; it is not a claim that the guard would get a mounted route right.
+  // `requestPath(req)`, so it never prefixed `req.baseUrl`; both guards now go
+  // through that one function.
+  //
+  // `/whoami` is a mounted router (`src/routes/whoami.js`), and that is what
+  // gives this assertion teeth. `router.get('/')` under a mount at `/whoami`
+  // is the shape the old guard got wrong -- it reported `/`. While the route
+  // sat at the top level of app.js, `req.baseUrl` was empty and a guard that
+  // ignored it agreed by accident, so the same line of code asserted nothing.
   const intake = await startStubIntake({ status: 201, body: '{}' });
   t.after(() => intake.stop());
   const url = await serve(t);
@@ -240,4 +244,24 @@ test('the path sent to intake for /whoami is /whoami', async (t) => {
   await call(url, '/whoami');
 
   assert.equal(intake.calls[0].path, '/whoami');
+});
+
+test('both guards name a mounted route the way it was registered', async (t) => {
+  // The path half of the parity above. One stub, two mounted routers: /whoami
+  // through `authenticated`, /books through `authorize`. Both are index routes
+  // on a mount, so Express composes `prefix + '/'` for each and `requestPath`
+  // has to prefix the mount and strip the trailing slash for both. When the
+  // guards disagreed here the app still looked healthy -- 201 in, 200 out --
+  // and only intake, matching against what registration told it, would have
+  // seen one of them ask about an endpoint that does not exist.
+  const intake = await startStubIntake({ status: 201, body: '{}' });
+  t.after(() => intake.stop());
+  const url = await serve(t);
+
+  await call(url, '/whoami');
+  await call(url, '/books');
+
+  const [viaAuthenticate, viaAuthorize] = intake.calls;
+  assert.equal(viaAuthenticate.path, '/whoami');
+  assert.equal(viaAuthorize.path, '/books');
 });

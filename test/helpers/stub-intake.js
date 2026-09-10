@@ -47,8 +47,15 @@ async function startStubIntake({ status = 201, body = '{}' } = {}) {
         method: req.method,
         // What the SDK told intake about the request it is judging. `path` is
         // the assertion that catches a guard resolving the endpoint wrongly.
+        //
+        // `http_method`, not `action`: intake's `AuthorizeAccess.authorize/1`
+        // pattern-matches on `http_method` and ignores every other key, so the
+        // name is the wire contract rather than a label. The authenticate
+        // command used to send `action` and was corrected (sc-320); reading
+        // `action` here would silently record `undefined` for both guards and
+        // assert nothing.
         path: parsed?.path,
-        action: parsed?.action,
+        httpMethod: parsed?.http_method,
         clientAuth: parsed?.client_auth,
       });
 
