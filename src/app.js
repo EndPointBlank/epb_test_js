@@ -9,13 +9,17 @@
  * POST   /books          Add a new book.
  * DELETE /books/:id      Remove a book by id.
  * GET    /errors         Intentionally throws to exercise EndPointBlank error tracking.
+ * GET    /whoami         The one route behind `authenticated` rather than `authorized`.
  * POST   /mesh/relay     The sc-263 mesh call, bounded by the hop budget.
  * POST   /mesh/reports   The mesh negative control, deliberately not granted.
  *
- * All routes are protected by the `authorized` middleware (EndPointBlank
- * authorization check).  The reportInteraction / reportInteractionErrorHandler
- * middleware pair wraps every request/response and forwards data to the
- * EndPointBlank ingest service.
+ * Every route except `/whoami` is protected by the `authorized` middleware
+ * (EndPointBlank authorization check: does a grant cover this endpoint?).
+ * `/whoami` is protected by `authenticated` (is the credential itself good?),
+ * which is a separate code path through the SDK -- see the note above the
+ * route.  The reportInteraction / reportInteractionErrorHandler middleware
+ * pair wraps every request/response and forwards data to the EndPointBlank
+ * ingest service.
  */
 
 const { execSync } = require('child_process');
@@ -76,6 +80,7 @@ app.use('/books',      require('./routes/books'));
 app.use('/computers',  require('./routes/computers'));
 app.use('/projectors', require('./routes/projectors'));
 app.use('/errors',     require('./routes/errors'));
+app.use('/whoami',     require('./routes/whoami'));
 app.use(MESH_MOUNT,    require('./routes/mesh'));
 
 // EPB error tracking — must come after routes
