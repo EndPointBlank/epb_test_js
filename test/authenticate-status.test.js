@@ -75,7 +75,7 @@ async function call(url, path) {
 // --------------------------------------------------------------------------
 
 test('GET /whoami is served when intake accepts the credential', async (t) => {
-  const intake = await startStubIntake({ status: 201, body: '{}' });
+  const intake = await startStubIntake({ status: 201 });
   t.after(() => intake.stop());
   const url = await serve(t);
 
@@ -88,7 +88,7 @@ test('GET /whoami is served when intake accepts the credential', async (t) => {
 });
 
 test('GET /whoami really does go through the authenticate path', async (t) => {
-  const intake = await startStubIntake({ status: 201, body: '{}' });
+  const intake = await startStubIntake({ status: 201 });
   t.after(() => intake.stop());
   const url = await serve(t);
 
@@ -237,7 +237,7 @@ test('the path sent to intake for /whoami is /whoami', async (t) => {
   // is the shape the old guard got wrong -- it reported `/`. While the route
   // sat at the top level of app.js, `req.baseUrl` was empty and a guard that
   // ignored it agreed by accident, so the same line of code asserted nothing.
-  const intake = await startStubIntake({ status: 201, body: '{}' });
+  const intake = await startStubIntake({ status: 201 });
   t.after(() => intake.stop());
   const url = await serve(t);
 
@@ -254,7 +254,7 @@ test('both guards name a mounted route the way it was registered', async (t) => 
   // guards disagreed here the app still looked healthy -- 201 in, 200 out --
   // and only intake, matching against what registration told it, would have
   // seen one of them ask about an endpoint that does not exist.
-  const intake = await startStubIntake({ status: 201, body: '{}' });
+  const intake = await startStubIntake({ status: 201 });
   t.after(() => intake.stop());
   const url = await serve(t);
 

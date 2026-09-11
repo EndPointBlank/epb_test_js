@@ -27,12 +27,42 @@ const { once } = require('node:events');
 const epb = require('end-point-blank-js');
 
 /**
+ * What intake answers a granted `POST /api/authorize` with.
+ *
+ * The field names are intake's, from `AuthorizationJSON.show/1` (intake
+ * `lib/intake_web/controllers/authorization_json.ex`), pinned by its
+ * `authorization_controller_test.exs` ("POST /api/authorize — authorized"): the
+ * grant sits under `data`, one entry with exactly these four keys. A
+ * `deprecation` block is added only when the called version is deprecated, so
+ * the default leaves it out. The values are stand-ins.
+ *
+ * This used to be `{}`. The SDK this app pins reads only `deprecation` from a
+ * 201, so nothing broke -- but once it reads
+ * `data[0].source_application_environment_id` and logs an error on a grant that
+ * names no caller (sc-473), every authorized request here would have logged
+ * that error, and nothing in this suite pinned intake's real key (sc-483).
+ * `test/stub-intake.test.js` pins it now.
+ */
+const GRANTED_BODY = JSON.stringify({
+  authorized: true,
+  data: [
+    {
+      id: '5f0c6b1e-0000-4000-8000-000000000001',
+      source_application_environment_id: '5f0c6b1e-0000-4000-8000-000000000002',
+      target_application_environment_id: '5f0c6b1e-0000-4000-8000-000000000003',
+      inserted_at: '2026-01-01T00:00:00Z',
+    },
+  ],
+});
+
+/**
  * @param {object} [options]
  * @param {number} [options.status] status the stub answers `/api/authorize` with.
  *   201 grants; anything else is a refusal, exactly as intake's would be.
- * @param {string} [options.body] response body for that answer.
+ * @param {string} [options.body] response body for that answer. Defaults to
+ *   intake's granted body for a 201, and to `{}` for anything else.
  */
-async function startStubIntake({ status = 201, body = '{}' } = {}) {
+async function startStubIntake({ status = 201, body = status === 201 ? GRANTED_BODY : '{}' } = {}) {
   const calls = [];
   let answer = { status, body };
 
