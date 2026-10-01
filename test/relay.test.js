@@ -267,6 +267,32 @@ test('the outbound call is authorized through the SDK, not sent raw', async (t) 
   assert.equal(double.requests[0].headers.authorization, 'Bearer mesh-test-token');
 });
 
+test('no token for the downstream is this hop own 502, and nothing is sent', async (t) => {
+  // end-point-blank-js 0.12.0 (sc-1469): `Authorization.header(url)` throws
+  // TokenUnavailableError rather than falling back to Basic with this
+  // application's own credentials. The hop made no call, so it is the origin
+  // and there is no downstream status -- not a bare 500 that the hop above
+  // would attribute to itself.
+  const noToken = stubAccessTokens(null);
+  t.after(() => noToken.restore());
+  const double = await startDouble(meshReply());
+  t.after(() => double.close());
+  const node = await start(t, { appName: APP, downstreamUrl: double.url });
+
+  const response = await postMesh(`${node.url}/mesh/relay`, {
+    headers: { 'x-epb-test-hops': '1' },
+    body: '{}',
+  });
+
+  assert.equal(response.status, 502);
+  assert.equal(response.body.error, 'downstream_failed');
+  assert.equal(response.body.downstream_status, null);
+  assert.match(response.body.downstream_error, /Could not mint an EndPointBlank access token/);
+  assert.equal(response.body.origin.app, APP);
+  assert.equal(response.body.origin.status, null);
+  assert.equal(double.requests.length, 0);
+});
+
 test('a trailing slash on the configured base URL does not double up', async (t) => {
   const double = await startDouble(meshReply());
   t.after(() => double.close());

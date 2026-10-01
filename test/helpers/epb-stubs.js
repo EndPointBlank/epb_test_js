@@ -83,19 +83,27 @@ function stubWriters() {
  * The mesh's outbound call builds its Authorization header with the SDK's own
  * `Authorization.header(url)` — the seam the contract requires, so that
  * cross-organization authorization is genuinely exercised rather than
- * bypassed. That call ends in `AccessTokens.token(url)`, which is the single
- * point where the SDK would reach intake. Stubbing it keeps the whole of the
- * real seam in the test and takes the network out of it.
+ * bypassed. That call ends in `AccessTokens`, which is the single point where
+ * the SDK would reach intake. Stubbing it keeps the whole of the real seam in
+ * the test and takes the network out of it.
  *
- * @param {string|null} token the token to hand back, or null to force the
- *   Basic fallback.
+ * Since end-point-blank-js 0.12.0, `Authorization.header` reads
+ * `AccessTokens.tokenWithResult` rather than `AccessTokens.token`, so both are
+ * stubbed: stubbing only `token` silently lets the real mint run.
+ *
+ * @param {string|null} token the token to hand back, or null for "no token
+ *   could be minted" -- which `Authorization.header` now answers with a
+ *   `TokenUnavailableError`, never a Basic fallback (sc-1469).
  * @returns {{restore: Function}}
  */
 function stubAccessTokens(token = 'mesh-test-token') {
   const { AccessTokens } = require('end-point-blank-js/src/tokens/access-tokens');
-  const original = AccessTokens.token;
+  const originals = { token: AccessTokens.token, tokenWithResult: AccessTokens.tokenWithResult };
   AccessTokens.token = async () => token;
-  return { restore() { AccessTokens.token = original; } };
+  AccessTokens.tokenWithResult = async () => (
+    token ? { token, result: null } : { token: null, result: { outcome: 'request_rejected', status: 403 } }
+  );
+  return { restore() { Object.assign(AccessTokens, originals); } };
 }
 
 module.exports = { stubAuthorize, stubWriters, stubAccessTokens };
