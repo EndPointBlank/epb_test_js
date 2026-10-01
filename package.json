@@ -8,7 +8,7 @@
     "test": "node --test test/*.test.js"
   },
   "dependencies": {
-    "end-point-blank-js": "github:EndPointBlank/end_point_blank_js#006124b7f0",
+    "end-point-blank-js": "github:EndPointBlank/end_point_blank_js#90d1d04d89e5ed2449dc5457726282c46f9267b5",
     "express": "^4.18.2",
     "morgan": "^1.10.0",
     "pg": "^8.11.0"

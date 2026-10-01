@@ -15,8 +15,9 @@
  * edit to this file rather than a hunt through the handler.
  *
  * `Authorization.header(url)` asks the SDK for a Bearer token covering the
- * target and falls back to HTTP Basic with this application's own credentials
- * when none can be minted.
+ * target. Since end-point-blank-js 0.12.0 (sc-1469) there is no HTTP Basic
+ * fallback: when no token can be minted it rejects with
+ * `TokenUnavailableError`, which the relay reports as this hop's own 502.
  */
 
 const { Authorization } = require('end-point-blank-js/src/authorization');
@@ -26,7 +27,8 @@ const { Authorization } = require('end-point-blank-js/src/authorization');
  *
  * @param {string} url the URL about to be called, with no query string or
  *   fragment — intake rejects both.
- * @returns {Promise<string>} `Bearer <token>` or `Basic <credentials>`.
+ * @returns {Promise<string>} `Bearer <token>`.
+ * @throws {TokenUnavailableError} when no token can be minted for *url*.
  */
 async function downstreamAuthHeader(url) {
   return Authorization.header(url);

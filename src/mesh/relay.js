@@ -144,7 +144,23 @@ function createRelayHandler(options = {}) {
       const headers = { [HOPS_HEADER]: String(hopsForwarded) };
       // Absent means forward nothing, rather than forwarding an empty header.
       if (run !== null) headers[RUN_HEADER] = run;
-      headers.authorization = await authHeader(target);
+      try {
+        headers.authorization = await authHeader(target);
+      } catch (err) {
+        // No token for the downstream target. Since end-point-blank-js 0.12.0
+        // (sc-1469) the SDK throws TokenUnavailableError here instead of
+        // falling back to Basic with this application's own credentials. That
+        // fallback used to reach the downstream and come back as a refusal, so
+        // this hop answered 502 naming itself; a bare 500 from `next(err)`
+        // would instead be attributed by the hop above to itself. No call was
+        // made, so there is no downstream status.
+        if (err && err.name === 'TokenUnavailableError') {
+          return failed(res, {
+            app, hopsReceived, status: null, message: err.message, body: null,
+          });
+        }
+        throw err;
+      }
 
       let response;
       try {
